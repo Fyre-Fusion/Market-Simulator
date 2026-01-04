@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Market Simulator</title>
+<style>
+:root{
+  --bg:#020617;
+  --card:#1f2933;
+  --text:#e5e7eb;
+  --muted:#9ca3af;
+  --up:#22c55e;
+  --down:#ef4444;
+  --accent:#38bdf8;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:system-ui,sans-serif;
+  background:linear-gradient(135deg,#020617,#0f172a);
+  color:var(--text);
+}
+header{
+  position:sticky;
+  top:0;
+  background:#111827;
+  padding:10px 15px;
+  border-bottom:1px solid #334155;
+}
+.top{
+  display:flex;
+  justify-content:center;
+  gap:30px;
+}
+.top div{font-weight:600;font-size:16px;}
+.news{
+  margin:8px auto;
+  text-align:center;
+  font-size:14px;
+  color:#fde68a;
+  animation:newsFade .6s;
+}
+@keyframes newsFade{
+  from{opacity:0;transform:translateY(-5px)}
+  to{opacity:1;transform:none}
+}
+.nav{
+  display:flex;
+  justify-content:center;
+  gap:10px;
+  margin-top:6px;
+}
+.nav button{
+  background:#1e293b;
+  color:var(--text);
+  border:none;
+  padding:6px 14px;
+  border-radius:999px;
+  cursor:pointer;
+}
+.nav button.active{
+  background:var(--accent);
+  color:#022c22;
+  font-weight:600;
+}
+main{
+  max-width:1400px;
+  margin:auto;
+  padding:20px;
+  display:grid;
+  grid-template-columns:2fr 1fr;
+  gap:20px;
+}
+.card{
+  background:var(--card);
+  padding:15px;
+  border-radius:12px;
+  box-shadow:0 10px 20px rgba(0,0,0,0.4);
+}
+table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:14px;
+}
+th,td{
+  padding:8px;
+  border-bottom:1px solid #334155;
+  text-align:center;
+}
+.stock-name{color:#60a5fa;cursor:pointer}
+.stock-name:hover{text-decoration:underline;}
+.price-up{color:var(--up)}
+.price-down{color:var(--down)}
+.flash-up{animation:up .6s}
+.flash-down{animation:down .6s}
+@keyframes up{
+  0%{background:rgba(34,197,94,.3);transform:scale(1.02)}
+  100%{background:transparent;transform:none}
+}
+@keyframes down{
+  0%{background:rgba(239,68,68,.3);transform:scale(1.02)}
+  100%{background:transparent;transform:none}
+}
+button.buy,button.sell{
+  border:none;border-radius:6px;padding:4px 8px;cursor:pointer;transition:0.2s;
+}
+button.buy{background:var(--up)}
+button.sell{background:var(--down);color:white}
+button.buy:hover, button.sell:hover{transform:scale(1.05)}
+button.reset{
+  margin-top:10px;
+  background:#334155;
+  color:white;
+  border:none;
+  border-radius:6px;
+  padding:6px 12px;
+  cursor:pointer;
+}
+button.reset:hover{filter:brightness(1.1);}
+canvas{
+  width:100%;
+  background:#020617;
+  border-radius:10px;
+}
+.advice{
+  margin-top:10px;
+  padding:12px;
+  border-radius:8px;
+  background:#0f172a;
+  font-size:14px;
+  min-height:70px;
+  color:#c7d2fe;
+  overflow:hidden;
+}
+table tr.selected{background:rgba(56,189,248,0.1);}
+</style>
+</head>
+<body>
+
+<header>
+<div class="top">
+<div>💰 $<span id="money">100</span></div>
+<div>💼 Net $<span id="networth">100</span></div>
+<div>🏆 High $<span id="highscore">100</span></div>
+</div>
+<div class="news" id="news">Market opening…</div>
+<div class="nav">
+<button class="active" onclick="setCategory('stock',this)">Stocks</button>
+<button onclick="setCategory('bullion',this)">Bullion</button>
+<button onclick="setCategory('crypto',this)">Crypto</button>
+</div>
+</header>
+
+<main>
+<div class="card">
+<h2>📊 Market</h2>
+<table>
+<thead>
+<tr>
+<th>Asset</th><th>Type</th><th>Price</th><th>Owned</th><th></th><th></th>
+</tr>
+</thead>
+<tbody id="table"></tbody>
+</table>
+<button class="reset" onclick="resetGame()">Reset Game</button>
+</div>
+
+<div class="card">
+<h2 id="graphTitle">📈 Select an asset</h2>
+<canvas id="graph" width="400" height="250"></canvas>
+<button class="reset" style="margin-top:5px;" onclick="toggleSMA()">Show/Hide SMA</button>
+<div class="advice" id="advice">Select an asset to hear the AI advisor.</div>
+</div>
+</main>
+
+<script>
+let money=100,selected=null,filter="stock",showSMA=true;
+let highScore=+localStorage.getItem("highScore")||100;
+const newsText={
+stock:["Tech stocks wobble","Market searches for direction","Major firms announce products"],
+bullion:["Investors seek safety","Bullion holds steady","Demand rises as risk appetite cools"],
+crypto:["Crypto swings sharply","Volatility spikes","Traders debate future trends"]
+};
+
+const names=[
+"AlphaTech","BetaSoft","CyberCorp","DeltaWare","EcoPower","FutureAI","GreenFuel","HyperNet",
+"IonSystems","JetWorks","KryptoLabs","LogicWare","MegaBuild","NanoTech","OmegaOil",
+"PixelGames","QuantumInc","RoboWorks","Solaris","TitanSteel","UltraHealth","VertexAI",
+"WaveEnergy","XenoLabs","YieldCorp","ZenithTech","ApexIndustries","BlueOcean","CloudNine","DataForge"
+];
+
+let assets=names.map(n=>({name:n,type:"stock",vol:.05,price:Math.random()*20+5,last:0,owned:0,history:[]}));
+assets.push(
+{name:"Gold Bullion",type:"bullion",vol:.015,price:60,last:0,owned:0,history:[]},
+{name:"Silver Bullion",type:"bullion",vol:.02,price:30,last:0,owned:0,history:[]},
+{name:"Bitcoin",type:"crypto",vol:.12,price:25,last:0,owned:0,history:[]},
+{name:"Ethereum",type:"crypto",vol:.15,price:15,last:0,owned:0,history:[]}
+);
+
+const table=document.getElementById("table");
+const canvas=document.getElementById("graph");
+const ctx=canvas.getContext("2d");
+const advice=document.getElementById("advice");
+const news=document.getElementById("news");
+
+function saveGame(){
+localStorage.setItem("money",money);
+localStorage.setItem("assets",JSON.stringify(assets.map(a=>({price:a.price,owned:a.owned,history:a.history,type:a.type,name:a.name,vol:a.vol,last:a.last}))));
+}
+function loadGame(){
+const storedMoney=localStorage.getItem("money");
+const storedAssets=localStorage.getItem("assets");
+if(storedMoney) money=+storedMoney;
+if(storedAssets){
+const saved=JSON.parse(storedAssets);
+assets.forEach((a,i)=>{a.price=saved[i].price;a.owned=saved[i].owned;a.history=saved[i].history;a.last=saved[i].last;});
+}
+}
+
+// --- Smooth animation setup ---
+let animationStep=0,animationFrames=60;
+let animStart=[], animEnd=[];
+
+function startAnimation(){
+assets.forEach((a,i)=>{
+animStart[i]=a.history[a.history.length-2]||a.price;
+animEnd[i]=a.price;
+});
+animationStep=0;
+requestAnimationFrame(animateSmooth);
+}
+
+function animateSmooth(){
+animationStep++;
+assets.forEach((a,i)=>{
+let prev=animStart[i], next=animEnd[i];
+a.history[a.history.length-1]=prev + (next-prev)*(animationStep/animationFrames);
+});
+if(animationStep<animationFrames) requestAnimationFrame(animateSmooth);
+if(selected!==null) animateGraph();
+}
+
+// --- News ---
+function rotateNews(){
+const n=newsText[filter][Math.floor(Math.random()*newsText[filter].length)];
+news.textContent="📰 "+n;
+applyNewsEffect(n);
+}
+setInterval(rotateNews,6000);
+
+function applyNewsEffect(headline){
+assets.forEach(a=>{
+if(a.type!==filter)return;
+let impact=Math.random()*0.05;
+if(headline.includes("wobble")||headline.includes("cool")||headline.includes("spikes")||headline.includes("debate"))impact*=-1;
+a.price=Math.max(0.5,a.price*(1+impact));
+a.history.push(a.price);
+if(a.history.length>60)a.history.shift();
+});
+startAnimation();
+updateUI();
+saveGame();
+}
+
+// --- UI & logic ---
+function updateUI(){
+table.innerHTML="";
+assets.forEach((a,i)=>{
+if(a.type!==filter)return;
+const up=a.price>=a.last;
+const selectedClass=(selected===i)?"selected":"";
+table.innerHTML+=`<tr class="${up?"flash-up":"flash-down"} ${selectedClass}">
+<td class="stock-name" onclick="select(${i})">${a.name}</td>
+<td>${a.type}</td>
+<td class="${up?"price-up":"price-down"}">${a.price.toFixed(2)}</td>
+<td>${a.owned}</td>
+<td><button class="buy" onclick="buy(${i})">Buy</button></td>
+<td><button class="sell" onclick="sell(${i})">Sell</button></td>
+</tr>`;
+});
+document.getElementById("money").textContent=money.toFixed(2);
+const nw=money+assets.reduce((s,a)=>s+a.price*a.owned,0);
+document.getElementById("networth").textContent=nw.toFixed(2);
+if(nw>highScore){highScore=nw;localStorage.setItem("highScore",highScore);}
+document.getElementById("highscore").textContent=highScore.toFixed(2);
+}
+
+function buy(i){if(money>=assets[i].price){money-=assets[i].price;assets[i].owned++;updateUI();saveGame();}}
+function sell(i){if(assets[i].owned){assets[i].owned--;money+=assets[i].price;updateUI();saveGame();}}
+
+function tick(){
+assets.forEach(a=>{
+a.last=a.price;
+a.price=Math.max(.5,a.price*(1+(Math.random()*2-1)*a.vol+(a.type==="bullion"?0.002:0)));
+a.history.push(a.price);
+if(a.history.length>60)a.history.shift();
+});
+startAnimation();
+updateUI();
+saveGame();
+}
+setInterval(tick,2500);
+
+function select(i){
+selected=i;
+document.getElementById("graphTitle").textContent="📈 "+assets[i].name;
+updateAdvice();
+animateGraph();
+}
+
+function updateAdvice(){
+if(selected===null) return;
+const a = assets[selected];
+const diff = a.price - a.history[a.history.length-2] || 0;
+let trend = diff>0 ? "rising momentum" : diff<0 ? "falling momentum" : "stable";
+let typeText = a.type==="stock"?"stock":a.type==="bullion"?"precious metal":"cryptocurrency";
+typeText=typeText.charAt(0).toUpperCase()+typeText.slice(1);
+advice.textContent=`${typeText} is currently ${trend}. Consider market conditions before trading.`;
+}
+
+function toggleSMA(){showSMA=!showSMA;animateGraph();}
+
+function animateGraph(){
+if(selected===null)return;
+const d=assets[selected].history;
+if(d.length<2)return;
+const min=Math.min(...d);
+const max=Math.max(...d);
+ctx.clearRect(0,0,canvas.width,canvas.height);
+
+// SMA
+if(showSMA){
+ctx.beginPath();ctx.strokeStyle="#3b82f6";ctx.lineWidth=2;
+for(let i=0;i<d.length;i++){
+const slice=d.slice(Math.max(0,i-9),i+1);
+const avg=slice.reduce((a,b)=>a+b,0)/slice.length;
+const x=i/(d.length-1)*canvas.width;
+const y=canvas.height-(avg-min)/(max-min)*canvas.height;
+i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
+ctx.stroke();
+}
+
+// Price line
+ctx.beginPath();ctx.strokeStyle="#22c55e";ctx.lineWidth=2;
+for(let i=0;i<d.length;i++){
+const x=i/(d.length-1)*canvas.width;
+const y=canvas.height-(d[i]-min)/(max-min)*canvas.height;
+i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
+ctx.stroke();
+}
+
+function setCategory(c,btn){filter=c;selected=null;document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active"));btn.classList.add("active");rotateNews();updateUI();}
+
+function resetGame(){
+money=100;
+assets.forEach(a=>{a.owned=0;a.price=Math.random() * 20 + (a.type==="bullion"?50:5);a.history=[];a.last=a.price;});
+selected=null;
+document.getElementById("graphTitle").textContent="📈 Select an asset";
+advice.textContent="Select an asset to hear the AI advisor.";
+updateUI();saveGame();
+}
+
+loadGame();rotateNews();updateUI();
+</script>
+</body>
+</html>
+
