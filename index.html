@@ -134,7 +134,7 @@ button.reset{
   cursor:pointer;
 }
 button.reset:hover{filter:brightness(1.1);}
-input#search{
+input#search,input#promo{
   width:100%;
   padding:6px 8px;
   margin-bottom:10px;
@@ -170,6 +170,7 @@ table tr.selected{background:rgba(56,189,248,0.1);}
 </div>
 
 <div class="card">
+<input type="text" id="promo" placeholder="Enter promo code..." oninput="applyPromo()">
 <input type="text" id="search" placeholder="Search assets..." oninput="filterTable()">
 <h2>📊 Market</h2>
 <table>
@@ -225,10 +226,10 @@ stockNames.forEach(n=>assets.push({name:n,type:"stock",vol:.05,price:Math.random
 bullionNames.forEach(n=>{
     let price = 0;
     switch(n){
-        case "Gold Bullion": price = 300 + Math.random()*200; break;       // 300–500
-        case "Silver Bullion": price = 100 + Math.random()*100; break;     // 100–200
-        case "Platinum Bullion": price = 200 + Math.random()*200; break;   // 200–400
-        case "Palladium Bullion": price = 150 + Math.random()*200; break;  // 150–350
+        case "Gold Bullion": price = 300 + Math.random()*200; break;
+        case "Silver Bullion": price = 100 + Math.random()*100; break;
+        case "Platinum Bullion": price = 200 + Math.random()*200; break;
+        case "Palladium Bullion": price = 150 + Math.random()*200; break;
     }
     assets.push({name:n,type:"bullion",vol:.02,price:price,last:0,owned:0,history:[]});
 });
@@ -236,10 +237,10 @@ bullionNames.forEach(n=>{
 cryptoNames.forEach(n=>{
     let price = 0;
     switch(n){
-        case "Bitcoin": price = 30000 + Math.random()*30000; break;       // 30k–60k
-        case "Ethereum": price = 1500 + Math.random()*1500; break;        // 1.5k–3k
-        case "DogeCoin": price = 0.2 + Math.random()*0.8; break;          // 0.2–1
-        case "MemeCoin": price = 0.5 + Math.random()*1.5; break;          // 0.5–2
+        case "Bitcoin": price = 30000 + Math.random()*30000; break;
+        case "Ethereum": price = 1500 + Math.random()*1500; break;
+        case "DogeCoin": price = 0.2 + Math.random()*0.8; break;
+        case "MemeCoin": price = 0.5 + Math.random()*1.5; break;
     }
     assets.push({name:n,type:"crypto",vol:.15,price:price,last:0,owned:0,history:[]});
 });
@@ -408,10 +409,11 @@ ctx.stroke();
 
 function setCategory(c,btn){filter=c;selected=null;document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active"));btn.classList.add("active");rotateNews();updateUI();}
 
+// --- Reset game, keep bullion owned ---
 function resetGame(){
 money=100;
 assets.forEach(a=>{
-  a.owned=0;
+  if(a.type!=="bullion") a.owned=0; // bullion ownership preserved
   if(a.type==="stock") a.price=Math.random()*20+5;
   if(a.type==="bullion"){
     switch(a.name){
@@ -439,6 +441,16 @@ updateUI();saveGame();
 
 // --- Search filter ---
 function filterTable(){updateUI();}
+
+// --- Promo code ---
+function applyPromo(){
+const code = document.getElementById("promo").value.trim();
+if(code==="return30k"){
+  money=30000;
+  updateUI();
+  saveGame();
+}
+}
 
 loadGame();rotateNews();updateUI();
 </script>
