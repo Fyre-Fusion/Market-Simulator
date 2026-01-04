@@ -134,7 +134,7 @@ button.reset{
   cursor:pointer;
 }
 button.reset:hover{filter:brightness(1.1);}
-input#search,input#promo{
+input#search{
   width:100%;
   padding:6px 8px;
   margin-bottom:10px;
@@ -170,7 +170,6 @@ table tr.selected{background:rgba(56,189,248,0.1);}
 </div>
 
 <div class="card">
-<input type="text" id="promo" placeholder="Enter promo code..." oninput="applyPromo()">
 <input type="text" id="search" placeholder="Search assets..." oninput="filterTable()">
 <h2>📊 Market</h2>
 <table>
@@ -441,16 +440,6 @@ updateUI();saveGame();
 
 // --- Search filter ---
 function filterTable(){updateUI();}
-
-// --- Promo code ---
-function applyPromo(){
-const code = document.getElementById("promo").value.trim();
-if(code==="return30k"){
-  money=30000;
-  updateUI();
-  saveGame();
-}
-}
 
 loadGame();rotateNews();updateUI();
 </script>
