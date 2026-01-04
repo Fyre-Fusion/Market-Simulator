@@ -5,7 +5,7 @@
 <title>Market Simulator</title>
 <style>
 :root{
-  --bg:#020617;
+  --bg:#000000; /* pure black */
   --card:#1f2933;
   --text:#e5e7eb;
   --muted:#9ca3af;
@@ -17,7 +17,7 @@
 body{
   margin:0;
   font-family:system-ui,sans-serif;
-  background:linear-gradient(135deg,#020617,#0f172a);
+  background:var(--bg);
   color:var(--text);
 }
 header{
@@ -26,11 +26,13 @@ header{
   background:#111827;
   padding:10px 15px;
   border-bottom:1px solid #334155;
+  z-index:10;
 }
 .top{
   display:flex;
   justify-content:center;
   gap:30px;
+  flex-wrap:wrap;
 }
 .top div{font-weight:600;font-size:16px;}
 .news{
@@ -49,6 +51,7 @@ header{
   justify-content:center;
   gap:10px;
   margin-top:6px;
+  flex-wrap:wrap;
 }
 .nav button{
   background:#1e293b;
@@ -67,11 +70,33 @@ main{
   max-width:1400px;
   margin:auto;
   padding:20px;
-  display:grid;
-  grid-template-columns:2fr 1fr;
+  display:flex;
+  flex-direction:column;
   gap:20px;
 }
-.card{
+.graph-card{
+  background:var(--card);
+  padding:15px;
+  border-radius:12px;
+  box-shadow:0 10px 20px rgba(0,0,0,0.4);
+}
+canvas{
+  width:100%;      /* stretch full width */
+  height:250px;    /* normal height */
+  background: var(--bg);
+  border-radius: 10px;
+}
+.advice{
+  margin-top:10px;
+  padding:12px;
+  border-radius:8px;
+  background:#0f172a;
+  font-size:14px;
+  min-height:70px;
+  color:#c7d2fe;
+  overflow:hidden;
+}
+.table-card{
   background:var(--card);
   padding:15px;
   border-radius:12px;
@@ -117,22 +142,17 @@ button.reset{
   cursor:pointer;
 }
 button.reset:hover{filter:brightness(1.1);}
-canvas{
-  width:100%;
-  background:#020617;
-  border-radius:10px;
-}
-.advice{
-  margin-top:10px;
-  padding:12px;
-  border-radius:8px;
-  background:#0f172a;
-  font-size:14px;
-  min-height:70px;
-  color:#c7d2fe;
-  overflow:hidden;
-}
 table tr.selected{background:rgba(56,189,248,0.1);}
+.search-bar{
+  width:100%;
+  margin-bottom:10px;
+  padding:6px 12px;
+  border-radius:6px;
+  border:none;
+  background:#1e293b;
+  color:#e5e7eb;
+}
+.search-bar::placeholder{color:#9ca3af;}
 </style>
 </head>
 <body>
@@ -152,7 +172,15 @@ table tr.selected{background:rgba(56,189,248,0.1);}
 </header>
 
 <main>
-<div class="card">
+<div class="graph-card">
+<h2 id="graphTitle">📈 Select an asset</h2>
+<canvas id="graph"></canvas>
+<button class="reset" style="margin-top:5px;" onclick="toggleSMA()">Show/Hide SMA</button>
+<div class="advice" id="advice">Select an asset to hear the AI advisor.</div>
+</div>
+
+<div class="table-card">
+<input type="text" class="search-bar" id="searchInput" placeholder="Search asset..." oninput="updateUI()">
 <h2>📊 Market</h2>
 <table>
 <thead>
@@ -165,33 +193,30 @@ table tr.selected{background:rgba(56,189,248,0.1);}
 <button class="reset" onclick="resetGame()">Reset Game</button>
 </div>
 
-<div class="card">
-<h2 id="graphTitle">📈 Select an asset</h2>
-<canvas id="graph" width="400" height="250"></canvas>
-<button class="reset" style="margin-top:5px;" onclick="toggleSMA()">Show/Hide SMA</button>
-<div class="advice" id="advice">Select an asset to hear the AI advisor.</div>
-</div>
-</main>
-
 <script>
+// Game variables
 let money=100,selected=null,filter="stock",showSMA=true;
 let highScore=+localStorage.getItem("highScore")||100;
+
+// News
 const newsText={
 stock:["Tech stocks wobble","Market searches for direction","Major firms announce products","Unexpected earnings report","Market rallies on new innovation"],
 bullion:["Investors seek safety","Bullion holds steady","Demand rises as risk appetite cools"],
 crypto:["Crypto swings sharply","Volatility spikes","Traders debate future trends","Altcoins soar","Memecoins catch investor attention"]
 };
 
-const names=[
+// Assets
+const stockNames=[
 "AlphaTech","BetaSoft","CyberCorp","DeltaWare","EcoPower","FutureAI","GreenFuel","HyperNet",
 "IonSystems","JetWorks","KryptoLabs","LogicWare","MegaBuild","NanoTech","OmegaOil",
 "PixelGames","QuantumInc","RoboWorks","Solaris","TitanSteel","UltraHealth","VertexAI",
 "WaveEnergy","XenoLabs","YieldCorp","ZenithTech","ApexIndustries","BlueOcean","CloudNine","DataForge",
 "NeoTech","StarLabs","InfinitySoft","NovaWorks","EcoSys","QuantumDynamics","SkylineCorp","LunarTech",
-"Photonix","TerraGen","AlphaSystems","BetaWare","CyberSolutions","DeltaDynamics","FutureWorks","OmegaSoft"
+"Photonix","TerraGen","AlphaSystems","BetaWare","CyberSolutions","DeltaDynamics","FutureWorks","OmegaSoft",
+"SunPower","GreenDynamics","HydroTech","AstroWorks","Cybernetic","FusionLabs","NanoSystems","EcoWare"
 ];
 
-let assets=names.map(n=>({name:n,type:"stock",vol:.05,price:Math.random()*20+5,last:0,owned:0,history:[]}));
+let assets=stockNames.map(n=>({name:n,type:"stock",vol:.05,price:Math.random()*20+5,last:0,owned:0,history:[]}));
 assets.push(
 {name:"Gold Bullion",type:"bullion",vol:.015,price:60,last:0,owned:0,history:[]},
 {name:"Silver Bullion",type:"bullion",vol:.02,price:30,last:0,owned:0,history:[]},
@@ -201,12 +226,15 @@ assets.push(
 {name:"MemeCoin",type:"crypto",vol:.9,price:30,last:0,owned:0,history:[]}
 );
 
+// DOM
 const table=document.getElementById("table");
 const canvas=document.getElementById("graph");
 const ctx=canvas.getContext("2d");
 const advice=document.getElementById("advice");
 const news=document.getElementById("news");
+const searchInput=document.getElementById("searchInput");
 
+// Save/load
 function saveGame(){
 localStorage.setItem("money",money);
 localStorage.setItem("assets",JSON.stringify(assets.map(a=>({price:a.price,owned:a.owned,history:a.history,type:a.type,name:a.name,vol:a.vol,last:a.last}))));
@@ -221,10 +249,9 @@ assets.forEach((a,i)=>{a.price=saved[i].price;a.owned=saved[i].owned;a.history=s
 }
 }
 
-// --- Smooth animation setup ---
+// --- Smooth animation ---
 let animationStep=0,animationFrames=60;
 let animStart=[], animEnd=[];
-
 function startAnimation(){
 assets.forEach((a,i)=>{
 animStart[i]=a.history[a.history.length-2]||a.price;
@@ -233,7 +260,6 @@ animEnd[i]=a.price;
 animationStep=0;
 requestAnimationFrame(animateSmooth);
 }
-
 function animateSmooth(){
 animationStep++;
 assets.forEach((a,i)=>{
@@ -256,11 +282,11 @@ function applyNewsEffect(headline){
 assets.forEach(a=>{
 if(a.type!==filter)return;
 let impact=Math.random()*0.05;
-if(a.type==="crypto") impact*=5; // crazy crypto swings
+if(a.type==="crypto") impact*=5;
 if(headline.includes("wobble")||headline.includes("cool")||headline.includes("spikes")||headline.includes("debate")||headline.includes("catch"))impact*=-1;
 a.price=Math.max(0.01,a.price*(1+impact));
 a.history.push(a.price);
-if(a.history.length>60)a.history.shift();
+if(a.history.length>200)a.history.shift(); // increase history length
 });
 startAnimation();
 updateUI();
@@ -270,8 +296,10 @@ saveGame();
 // --- UI & logic ---
 function updateUI(){
 table.innerHTML="";
+const searchTerm=searchInput.value.toLowerCase();
 assets.forEach((a,i)=>{
-if(a.type!==filter)return;
+if(a.type!==filter) return;
+if(!a.name.toLowerCase().includes(searchTerm)) return;
 const up=a.price>=a.last;
 const selectedClass=(selected===i)?"selected":"";
 table.innerHTML+=`<tr class="${up?"flash-up":"flash-down"} ${selectedClass}">
@@ -297,10 +325,10 @@ function tick(){
 assets.forEach(a=>{
 a.last=a.price;
 let volatility=a.vol;
-if(a.type==="crypto") volatility*=5; // insane crypto swings
+if(a.type==="crypto") volatility*=5;
 a.price=Math.max(0.01,a.price*(1+(Math.random()*2-1)*volatility+(a.type==="bullion"?0.002:0)));
 a.history.push(a.price);
-if(a.history.length>60)a.history.shift();
+if(a.history.length>200)a.history.shift(); // keep longer history
 });
 startAnimation();
 updateUI();
@@ -315,34 +343,44 @@ updateAdvice();
 animateGraph();
 }
 
-// --- AI Advice Upgrade with dynamic short-term prediction ---
+// --- AI Advice ---
 function updateAdvice(){
 if(selected===null) return;
 const a = assets[selected];
-const recent = a.history.slice(-5);
+const recent = a.history.slice(-10);
 const avgChange = (recent[recent.length-1]-recent[0])/recent[0];
-
 let trend="", adviceText="", typeText="";
 if(a.type==="crypto") typeText="Cryptocurrency";
 else if(a.type==="stock") typeText="Stock";
 else typeText="Precious Metal";
 
-// Unified trend
 if(avgChange > 0.03) trend="rising momentum 📈";
 else if(avgChange < -0.03) trend="falling momentum 📉";
 else trend="stable ⬌";
 
-// Predict short-term next move (next 3 ticks)
-let prediction = avgChange*3;
+const netWorth=money+assets.reduce((s,x)=>s+x.price*x.owned,0);
+let exposure=a.price*a.owned;
+let maxRiskFraction=(a.type==="crypto")?0.2:0.5;
+let safeUnits=Math.floor((netWorth*maxRiskFraction)/a.price);
+if(safeUnits<1) safeUnits=1;
+
+let prediction=avgChange*3;
 let buyProb=50, sellProb=50;
 if(a.type==="crypto") {buyProb=Math.min(95, Math.max(5, 50+prediction*100)); sellProb=100-buyProb;}
 else if(a.type==="stock") {buyProb=Math.min(80, Math.max(20, 50+prediction*50)); sellProb=100-buyProb;}
 else {buyProb=50; sellProb=50;}
 
-if(buyProb>65) adviceText=`AI Suggestion: Strong Buy! (${buyProb.toFixed(0)}% confidence)`;
-else if(buyProb>50) adviceText=`AI Suggestion: Buy cautiously. (${buyProb.toFixed(0)}%)`;
-else if(buyProb<35) adviceText=`AI Suggestion: Consider Selling. (${sellProb.toFixed(0)}%)`;
+let suggestedUnitsBuy = Math.min(safeUnits, Math.floor((money*buyProb/100)/a.price));
+if(suggestedUnitsBuy<1) suggestedUnitsBuy=1;
+let suggestedUnitsSell = Math.min(a.owned, Math.floor(a.owned*sellProb/100));
+if(suggestedUnitsSell<1 && a.owned>0) suggestedUnitsSell=1;
+
+if(buyProb>65) adviceText=`AI Suggestion: Strong Buy! Buy ~${suggestedUnitsBuy} units (${buyProb.toFixed(0)}% confidence)`;
+else if(buyProb>50) adviceText=`AI Suggestion: Buy cautiously. Buy ~${suggestedUnitsBuy} units (${buyProb.toFixed(0)}%)`;
+else if(sellProb>65) adviceText=`AI Suggestion: Consider Selling ~${suggestedUnitsSell} units (${sellProb.toFixed(0)}% confidence).`;
 else adviceText=`AI Suggestion: Hold.`;
+
+if(a.type==="crypto" && avgChange>0.1) adviceText+=` ⚠️ High volatility! Buy smaller amounts to manage risk.`;
 
 advice.textContent=`${typeText} is currently ${trend}. ${adviceText}`;
 }
@@ -384,8 +422,12 @@ function resetGame(){
 money=100;
 assets.forEach(a=>{
 a.owned=0;
-if(a.type==="crypto") a.price=Math.random()*250+30;
-else if(a.type==="bullion") a.price=Math.random()*20+50;
+if(a.type==="crypto"){
+  if(a.name==="Bitcoin") a.price=300+Math.random()*50;
+  else if(a.name==="Ethereum") a.price=150+Math.random()*30;
+  else if(a.name==="Dogecoin") a.price=50+Math.random()*20;
+  else if(a.name==="MemeCoin") a.price=30+Math.random()*10;
+} else if(a.type==="bullion") a.price=Math.random()*20+50;
 else a.price=Math.random()*20+5;
 a.history=[];a.last=a.price;
 });
@@ -397,5 +439,6 @@ updateUI();saveGame();
 
 loadGame();rotateNews();updateUI();
 </script>
+
 </body>
 </html>
