@@ -177,24 +177,28 @@ table tr.selected{background:rgba(56,189,248,0.1);}
 let money=100,selected=null,filter="stock",showSMA=true;
 let highScore=+localStorage.getItem("highScore")||100;
 const newsText={
-stock:["Tech stocks wobble","Market searches for direction","Major firms announce products"],
+stock:["Tech stocks wobble","Market searches for direction","Major firms announce products","Unexpected earnings report","Market rallies on new innovation"],
 bullion:["Investors seek safety","Bullion holds steady","Demand rises as risk appetite cools"],
-crypto:["Crypto swings sharply","Volatility spikes","Traders debate future trends"]
+crypto:["Crypto swings sharply","Volatility spikes","Traders debate future trends","Altcoins soar","Memecoins catch investor attention"]
 };
 
 const names=[
 "AlphaTech","BetaSoft","CyberCorp","DeltaWare","EcoPower","FutureAI","GreenFuel","HyperNet",
 "IonSystems","JetWorks","KryptoLabs","LogicWare","MegaBuild","NanoTech","OmegaOil",
 "PixelGames","QuantumInc","RoboWorks","Solaris","TitanSteel","UltraHealth","VertexAI",
-"WaveEnergy","XenoLabs","YieldCorp","ZenithTech","ApexIndustries","BlueOcean","CloudNine","DataForge"
+"WaveEnergy","XenoLabs","YieldCorp","ZenithTech","ApexIndustries","BlueOcean","CloudNine","DataForge",
+"NeoTech","StarLabs","InfinitySoft","NovaWorks","EcoSys","QuantumDynamics","SkylineCorp","LunarTech",
+"Photonix","TerraGen","AlphaSystems","BetaWare","CyberSolutions","DeltaDynamics","FutureWorks","OmegaSoft"
 ];
 
 let assets=names.map(n=>({name:n,type:"stock",vol:.05,price:Math.random()*20+5,last:0,owned:0,history:[]}));
 assets.push(
 {name:"Gold Bullion",type:"bullion",vol:.015,price:60,last:0,owned:0,history:[]},
 {name:"Silver Bullion",type:"bullion",vol:.02,price:30,last:0,owned:0,history:[]},
-{name:"Bitcoin",type:"crypto",vol:.12,price:25,last:0,owned:0,history:[]},
-{name:"Ethereum",type:"crypto",vol:.15,price:15,last:0,owned:0,history:[]}
+{name:"Bitcoin",type:"crypto",vol:.5,price:300,last:0,owned:0,history:[]},
+{name:"Ethereum",type:"crypto",vol:.6,price:150,last:0,owned:0,history:[]},
+{name:"Dogecoin",type:"crypto",vol:.8,price:50,last:0,owned:0,history:[]},
+{name:"MemeCoin",type:"crypto",vol:.9,price:30,last:0,owned:0,history:[]}
 );
 
 const table=document.getElementById("table");
@@ -252,8 +256,9 @@ function applyNewsEffect(headline){
 assets.forEach(a=>{
 if(a.type!==filter)return;
 let impact=Math.random()*0.05;
-if(headline.includes("wobble")||headline.includes("cool")||headline.includes("spikes")||headline.includes("debate"))impact*=-1;
-a.price=Math.max(0.5,a.price*(1+impact));
+if(a.type==="crypto") impact*=5; // crazy crypto swings
+if(headline.includes("wobble")||headline.includes("cool")||headline.includes("spikes")||headline.includes("debate")||headline.includes("catch"))impact*=-1;
+a.price=Math.max(0.01,a.price*(1+impact));
 a.history.push(a.price);
 if(a.history.length>60)a.history.shift();
 });
@@ -291,7 +296,9 @@ function sell(i){if(assets[i].owned){assets[i].owned--;money+=assets[i].price;up
 function tick(){
 assets.forEach(a=>{
 a.last=a.price;
-a.price=Math.max(.5,a.price*(1+(Math.random()*2-1)*a.vol+(a.type==="bullion"?0.002:0)));
+let volatility=a.vol;
+if(a.type==="crypto") volatility*=5; // insane crypto swings
+a.price=Math.max(0.01,a.price*(1+(Math.random()*2-1)*volatility+(a.type==="bullion"?0.002:0)));
 a.history.push(a.price);
 if(a.history.length>60)a.history.shift();
 });
@@ -308,14 +315,36 @@ updateAdvice();
 animateGraph();
 }
 
+// --- AI Advice Upgrade with dynamic short-term prediction ---
 function updateAdvice(){
 if(selected===null) return;
 const a = assets[selected];
-const diff = a.price - a.history[a.history.length-2] || 0;
-let trend = diff>0 ? "rising momentum" : diff<0 ? "falling momentum" : "stable";
-let typeText = a.type==="stock"?"stock":a.type==="bullion"?"precious metal":"cryptocurrency";
-typeText=typeText.charAt(0).toUpperCase()+typeText.slice(1);
-advice.textContent=`${typeText} is currently ${trend}. Consider market conditions before trading.`;
+const recent = a.history.slice(-5);
+const avgChange = (recent[recent.length-1]-recent[0])/recent[0];
+
+let trend="", adviceText="", typeText="";
+if(a.type==="crypto") typeText="Cryptocurrency";
+else if(a.type==="stock") typeText="Stock";
+else typeText="Precious Metal";
+
+// Unified trend
+if(avgChange > 0.03) trend="rising momentum 📈";
+else if(avgChange < -0.03) trend="falling momentum 📉";
+else trend="stable ⬌";
+
+// Predict short-term next move (next 3 ticks)
+let prediction = avgChange*3;
+let buyProb=50, sellProb=50;
+if(a.type==="crypto") {buyProb=Math.min(95, Math.max(5, 50+prediction*100)); sellProb=100-buyProb;}
+else if(a.type==="stock") {buyProb=Math.min(80, Math.max(20, 50+prediction*50)); sellProb=100-buyProb;}
+else {buyProb=50; sellProb=50;}
+
+if(buyProb>65) adviceText=`AI Suggestion: Strong Buy! (${buyProb.toFixed(0)}% confidence)`;
+else if(buyProb>50) adviceText=`AI Suggestion: Buy cautiously. (${buyProb.toFixed(0)}%)`;
+else if(buyProb<35) adviceText=`AI Suggestion: Consider Selling. (${sellProb.toFixed(0)}%)`;
+else adviceText=`AI Suggestion: Hold.`;
+
+advice.textContent=`${typeText} is currently ${trend}. ${adviceText}`;
 }
 
 function toggleSMA(){showSMA=!showSMA;animateGraph();}
@@ -353,7 +382,13 @@ function setCategory(c,btn){filter=c;selected=null;document.querySelectorAll(".n
 
 function resetGame(){
 money=100;
-assets.forEach(a=>{a.owned=0;a.price=Math.random() * 20 + (a.type==="bullion"?50:5);a.history=[];a.last=a.price;});
+assets.forEach(a=>{
+a.owned=0;
+if(a.type==="crypto") a.price=Math.random()*250+30;
+else if(a.type==="bullion") a.price=Math.random()*20+50;
+else a.price=Math.random()*20+5;
+a.history=[];a.last=a.price;
+});
 selected=null;
 document.getElementById("graphTitle").textContent="📈 Select an asset";
 advice.textContent="Select an asset to hear the AI advisor.";
@@ -364,4 +399,3 @@ loadGame();rotateNews();updateUI();
 </script>
 </body>
 </html>
-
